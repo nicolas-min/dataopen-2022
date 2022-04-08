@@ -13,6 +13,7 @@ library(lmtest)
 library(maps) 
 library(here)
 library(stringr)
+library("randomForest")
 ```
 
 # Math inside RMD
@@ -35,6 +36,39 @@ summary(plm(output ~ emp + wage + capital +factor(year), index=c("sector") , mod
 #using plm() but use robust SE
 plm_model <- plm(output ~ emp + wage + capital +factor(sector), index=c("year") , model="within", data=EmplUK)
 coeftest(plm_model, vcov=vcovHC(plm_model, type="HC1",cluster="group"))
+```
+
+#quantile regression
+```{r}
+library(quantreg)
+data(mtcars)
+lm_fit <- lm(mpg ~ wt, data = mtcars)
+lm_est <- lm_fit$coefficients[2]
+
+multi_rqfit <- rq(mpg ~ wt, data = mtcars, tau = seq(0, 1, by = 0.01))
+rq_est <- multi_rqfit$coefficients[seq(2,200,by=2)]
+
+rq_est_df <- data.frame(seq(0.01, 1, by = 0.01), rq_est)
+colnames(rq_est_df)[1] <- "quantile"
+
+ggplot(data=rq_est_df, aes(x=quantile, y=rq_est))+geom_line()+geom_hline(yintercept = lm_est, color = "red")
+ggplot(mtcars, aes(x=wt, y=mpg))+geom_point()+geom_smooth(method = 'lm')
+
+
+lm_fit <- lm(medv ~ lstat, data = BostonHousing)
+lm_est <- lm_fit$coefficients[2]
+
+multi_rqfit <- rq(medv ~ lstat, data = BostonHousing, tau = seq(0, 1, by = 0.1))
+rq_est <- multi_rqfit$coefficients[seq(2,20,by=2)]
+
+rq_est_df <- data.frame(seq(0.1, 1, by = 0.1), rq_est)
+colnames(rq_est_df)[1] <- "quantile"
+
+ggplot(data=rq_est_df, aes(x=quantile, y=rq_est))+geom_line()+geom_hline(yintercept = lm_est, color = "red")
+
+ggplot(BostonHousing, aes(x=lstat, y=medv))+geom_point()+geom_smooth(method = 'lm')
+
+
 ```
 
 # MAP
@@ -76,12 +110,75 @@ ggsave("../plot/sample plot2.png")
 
 # Heatmap
 ```{r}
+#https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
+#https://r-graph-gallery.com/38-rcolorbrewers-palettes.html
+library(hrbrthemes)
 
+# Dummy data
+x <- LETTERS[1:20]
+y <- paste0("var", seq(1,20))
+data <- expand.grid(X=x, Y=y) #expand.grid matches each Xi to Y1,...,Yn
+data$Z <- runif(400, 0, 5)
+ 
+# Heatmap 
+ggplot(data, aes(X, Y, fill= Z)) + 
+  geom_tile() + 
+  scale_fill_distiller(palette = "PiYG") +
+  theme_ipsum()
 ```
 
+# ML
 ```{r}
 #ML
 #https://www.geeksforgeeks.org/7-best-r-packages-for-machine-learning/
-  
+data(BostonHousing)
+data(BostonHousing2)
+data(iris)
+
+# Loading package
+library(e1071)
+library(caTools)
+library(caret)
+library(mlbench)
+library(class)
+
+# Splitting data into train
+# and test data
+training_percent <- 0.75
+testing_percent <- 1 - training_percent 
+
+split1<- sample(c(rep(0, training_percent * nrow(iris)), rep(1, testing_percent * nrow(iris))))
+
+train <- iris[split1 == 0,]
+test <- iris[split1 == 1,]
+
+# Feature Scaling
+train_scale <- scale(train[, 1:4])
+test_scale <- scale(test[, 1:4])
+
+# to training dataset
+set.seed(120) # Setting Seed
+classifier_cl <- naiveBayes(Species ~ .,data = train)
+classifier_RF <- randomForest(x = train[-5], y = train$Species, ntree = 500)
+
+# Predicting on test data
+y_pred_cl <- predict(classifier_cl, newdata = test)
+y_pred_RF = predict(classifier_RF, newdata = test[-5])
+y_pred_knn <- knn(train[1:4],test[1:4],cl=train[,5],k=2) #no need to 'train'
+
+# Confusion Matrix
+cm_cl <- table(test$Species, y_pred_cl)
+cm_cl
+cm_RF <- table(test$Species, y_pred_RF)
+cm_RF
+cm_knn <- table(test$Species,y_pred_knn)
+cm_knn
+
+#accuracy
+sum(y_pred_cl==test$Species)/length(test$Species)
+sum(y_pred_RF==test$Species)/length(test$Species)
+sum(y_pred_knn==test$Species)/length(test$Species)
+
 ```
+
 
