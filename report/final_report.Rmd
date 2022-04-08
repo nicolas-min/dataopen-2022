@@ -7,6 +7,7 @@ output: pdf_document
 
 ```{r include = FALSE}
 library(here)
+
 ```
 
 # 1 Executive Summary
@@ -36,6 +37,11 @@ knitr::include_graphics("../plot/sample plot.png")
 ```{r image-ref-for-in-text2, echo = FALSE, message=FALSE, fig.align='center', fig.cap='California Population', out.width='0.6\\linewidth'}
 knitr::include_graphics("../plot/sample plot2.png")
 ```
+
+```{r image-ref-for-in-text32, echo = FALSE, message=FALSE, fig.align='center', fig.cap='reg table', out.width='0.6\\linewidth'}
+knitr::include_graphics("../plot/test.pdf")
+```
+
 ## 3.2 (Model)
 
 # 4 Conclusion

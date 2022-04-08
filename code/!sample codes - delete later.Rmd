@@ -71,6 +71,105 @@ ggplot(BostonHousing, aes(x=lstat, y=medv))+geom_point()+geom_smooth(method = 'l
 
 ```
 
+# Residual Regression (FWL)
+```{r}
+x1 = rnorm(100)
+x2 = rnorm(100)
+x3 = rnorm(100)
+y1 = 1 + x1 - x2 + x3 + rnorm(100)
+
+r1 = residuals(lm(y1 ~ x2))
+r2 = residuals(lm(x1 ~ x2))
+r3 = residuals(lm(x1 ~ x3))
+# ols
+coef(lm(y1 ~ x1 + x2))
+# fwl ols
+coef(lm(r1 ~ -1 + r2))
+```
+
+# Weighted Linear Regression and Residual Analysis
+```{r}
+library(mlbench)
+library(ggplot2)
+data(BostonHousing)
+
+#WLS
+#stat 230A p195
+ols.fit = lm(medv ~ ., data = BostonHousing)
+dat.res = BostonHousing
+dat.res$medv = log((ols.fit$residuals)^2) #log of sq(resid)
+t.res.ols = lm(medv ~ ., data = dat.res) #above ~ X
+w.fgls = exp(-t.res.ols$fitted.values) # exponentiate fitted values -> this is our weight
+fgls.fit = lm(medv ~ ., weights = w.fgls, data = BostonHousing)
+ols.fgls = cbind(summary(ols.fit)$coef[,1:3],summary(fgls.fit)$coef[,1:3])
+round(ols.fgls , 3)
+
+#Resid Anal
+mod_ols.fit <- fortify(ols.fit)
+mod_fgls.fit <- fortify(fgls.fit)
+ggplot(mod_ols.fit , aes(x = .fitted, y = .resid)) + geom_point() +
+  theme_bw()+
+  labs(x = "Fitted Values", y = "Residuals", title = "OLS Residuals - With all variables")
+ggplot(mod_fgls.fit , aes(x = .fitted, y = .resid)) + geom_point() +
+  theme_bw()+
+  labs(x = "Fitted Values", y = "Residuals", title = "FGLS Residuals - With all variables")
+
+```
+
+# export reg table
+```{r}
+#https://cran.r-project.org/web/packages/jtools/vignettes/summ.html
+library(mlbench)
+library(ggplot2)
+library(jtools)
+library(huxtable)
+
+data(BostonHousing)
+ols.fit1 = lm(medv ~ ., data = BostonHousing)
+export_summs(ols.fit, scale = TRUE, to.file = "pdf", file.name = "../plot/test.pdf")
+```
+
+
+# LASSO/Ridge
+```{r}
+#https://www.statology.org/lasso-regression-in-r/
+#https://www.pluralsight.com/guides/linear-lasso-and-ridge-regression-with-r
+library(glmnet)
+y <- mtcars$hp
+x <- data.matrix(mtcars[, c('mpg', 'wt', 'drat', 'qsec')])
+
+#perform k-fold cross-validation to find optimal lambda value
+#alpha=0: ridge
+#alpha=1: lasso
+cv_model <- cv.glmnet(x, y, nfolds=10, alpha = 1) #nfolds=10 is default. if you want LOOCV, change to nrow(x)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+log(best_lambda)
+
+#produce plot of test MSE by lambda value
+plot(cv_model) 
+
+#coef
+best_model <- glmnet(x, y, alpha = 0, lambda = best_lambda)
+coef(best_model)
+
+#use fitted best model to make predictions
+y_predicted <- predict(best_model, s = best_lambda, newx = x)
+
+#find Rsq
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+rsq <- 1 - sse/sst
+rsq
+
+#compare with ols
+summary(lm(hp ~ mpg +wt + drat +qsec,data=mtcars))
+summary(lm(hp ~ mpg +wt +qsec,data=mtcars))
+
+```
+
 # MAP
 ```{r}
 #read datasets in R
@@ -131,6 +230,8 @@ ggplot(data, aes(X, Y, fill= Z)) +
 ```{r}
 #ML
 #https://www.geeksforgeeks.org/7-best-r-packages-for-machine-learning/
+#https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr
+
 data(BostonHousing)
 data(BostonHousing2)
 data(iris)
@@ -159,7 +260,7 @@ test_scale <- scale(test[, 1:4])
 # to training dataset
 set.seed(120) # Setting Seed
 classifier_cl <- naiveBayes(Species ~ .,data = train)
-classifier_RF <- randomForest(x = train[-5], y = train$Species, ntree = 500)
+classifier_RF <- randomForest(x = train[-5], y = train$Species, ntree = 500) #can be used to regression tree as well!
 
 # Predicting on test data
 y_pred_cl <- predict(classifier_cl, newdata = test)
@@ -181,4 +282,27 @@ sum(y_pred_knn==test$Species)/length(test$Species)
 
 ```
 
+
+# Wald test & LRT
+```{r}
+library(aod)
+library(lmtest)
+
+#https://www.statology.org/wald-test-in-r/
+#https://www.statology.org/likelihood-ratio-test-in-r/
+  
+
+model <- lm(medv ~ ., data = BostonHousing)
+summary(model)
+wald.test(Sigma = vcov(model), b = coef(model), Terms = 4:5)
+
+model_big <- lm(medv ~ crim + zn + indus, data = BostonHousing)
+model_small <- lm(medv ~ crim + zn, data = BostonHousing)
+lrtest(model_big, model_small)
+
+#view model summary
+?waldtest
+
+
+```
 
