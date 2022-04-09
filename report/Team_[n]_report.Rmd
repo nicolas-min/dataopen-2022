@@ -152,8 +152,16 @@ Assumptions (both implicit and explicit) made in the Strack et al.(2014) were ma
 
 Note that just like in Strack et al. (2014), we focus on "early" re-admissions. This is because if we focus on readmitted/non-readmitted instead, we would inevitably have to make an unreasonable assumption that having 'NO' for readmitted means that the patient was never readmitted (we don't know this because our data ends at 2008).
 
-```{r image-ref-for-in-text, echo = FALSE, message=FALSE, fig.align='center', fig.cap='US Population', out.width='0.6\\linewidth'}
-knitr::include_graphics("../plot/sample plot.png") 
+
+### Medicine Similarity
+
+In order to determine what model to use, we created a matrix to determine if some medicines were usually grouped together in use. 
+
+First, three Medicines were removed because they were never used: examide, glimepiride.pio, and cytoglipton. The matrix revealed that there were a few, very weak correlations, the maximum of which was 4.459526e-02. This indicated that it would be difficult to group the medicines together.
+
+
+```{r image-ref-for-in-text, echo = FALSE, message=FALSE, fig.align='center', fig.cap='Medicine Matrix', out.width='0.6\\linewidth'}
+knitr::include_graphics("../plot/matrix.png") 
 ```
 
 ```{r image-ref-for-in-text2, echo = FALSE, message=FALSE, fig.align='center', fig.cap='California Population', out.width='0.6\\linewidth'}
