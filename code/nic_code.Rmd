@@ -18,7 +18,7 @@ library("randomForest")
 
 # load
 ```{r}
-data <- read.csv("../data/diabetic_data.csv")
+data <- read.csv("../data/Diabetes_Data_1999_2008.csv")
 ```
 
 # manipulation
@@ -64,6 +64,10 @@ cleaned_data$early_readmitted[cleaned_data$readmitted == "<30"] <- 1
 write.csv(cleaned_data, "../data/diabetic_data_prelim_cleaned.csv")
 ```
 
+```{r}
+cleaned_data <- read.csv("../data/diabetic_data_prelim_cleaned.csv")
+
+```
 
 # Math inside RMD
 ```{r}
