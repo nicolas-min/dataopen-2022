@@ -64,8 +64,20 @@ cleaned_data$early_readmitted[cleaned_data$readmitted == "<30"] <- 1
 write.csv(cleaned_data, "../data/diabetic_data_prelim_cleaned.csv")
 ```
 
+# summary stats
 ```{r}
 cleaned_data <- read.csv("../data/diabetic_data_prelim_cleaned.csv")
+
+summary(as.factor(cleaned_data$early_readmitted))/nrow(cleaned_data) #8.97%
+
+cleaned_data_black <- cleaned_data %>% filter(race == "AfricanAmerican")
+cleaned_data_white <- cleaned_data %>% filter(race == "Caucasian")
+cleaned_data_asian <- cleaned_data %>% filter(race == "Asian")
+cleaned_data_hispanic <- cleaned_data %>% filter(race == "")
+
+summary(as.factor(cleaned_data_black$early_readmitted))/nrow(cleaned_data_black) #8.65%
+summary(as.factor(cleaned_data_white$early_readmitted))/nrow(cleaned_data_white) #9.18%
+summary(as.factor(cleaned_data_asian$early_readmitted))/nrow(cleaned_data_asian) #9.18%
 
 ```
 
