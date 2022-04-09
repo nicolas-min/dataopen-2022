@@ -126,6 +126,9 @@ The main two indicators of diabetes, with varying ranges indicating varying diab
 
 Indicates the range of days until a patient was readmitted.
 
+### Limitations
+Agreeing with the justifications made by S.Towers (2014), we admit to biases derived from binning, specifically from the data elements "max_glu_serum" and "A1Cresult". Both elements indicate a range, generalizing all continuous values inside each range. Fitting data inside binned ranges may also bias models, as they underpin the assumptions of future models.
+
 ## 2.2 Data Manipulation
 
 Agreeing with the justifications made by Strack et al.(2014), we performed the following data manipulation prior to model fitting (see Strack et al.(2014) for the justifications). We checked that our summary statistics match Table2 of Strack et al.
@@ -138,6 +141,8 @@ Agreeing with the justifications made by Strack et al.(2014), we performed the f
 
 As well, the following change was made to the target variable: 1. Focused on "recent readmittance" by categorizing the "readmitted" element as either \<30 days or "other"
 
+
+
 ## 2.3 Modeling
 
 Assumptions (both implicit and explicit) made in the Strack et al.(2014) were made in our analysis as well. Below are these assumptions.
@@ -147,10 +152,8 @@ Assumptions (both implicit and explicit) made in the Strack et al.(2014) were ma
 
 Note that just like in Strack et al. (2014), we focus on "early" re-admissions. This is because if we focus on readmitted/non-readmitted instead, we would inevitably have to make an unreasonable assumption that having 'NO' for readmitted means that the patient was never readmitted (we don't know this because our data ends at 2008).
 
-knitr::include_graphics("../plot/sample plot.png") //was erroring
-
 ```{r image-ref-for-in-text, echo = FALSE, message=FALSE, fig.align='center', fig.cap='US Population', out.width='0.6\\linewidth'}
-
+knitr::include_graphics("../plot/sample plot.png") 
 ```
 
 ```{r image-ref-for-in-text2, echo = FALSE, message=FALSE, fig.align='center', fig.cap='California Population', out.width='0.6\\linewidth'}
@@ -173,8 +176,7 @@ It was hypothesized that patients receive similar medication combinations based 
 
 This encoding is not idea because of dimensionality, drastically increasing the number of combinations as it assumes that each medication has no relationship with each other. However, there are much fewer combinations. Each medication can either be "up", "down", "steady", or "no", with a 1 or 0 encoded for each of these options per medication. Therefore, there were only 4\*22 = 88 combinations, much better than the number of categories made by label encoding. One Hot Encoding was chosen.
 
+
 # 3 Conclusion
 
-# References
 
-citation();
