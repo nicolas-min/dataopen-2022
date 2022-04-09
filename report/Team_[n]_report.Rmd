@@ -1,7 +1,7 @@
 ---
 title: "Our wonderful title goes here"
-author: "Derrick Cui, Elijah Jacob, Nicolas Min, Dajie Sun"
-date: "4/7/2022"
+author: "Xiaowen Cao, Derrick Cui, Elijah Jacob, Nicolas Min"
+date: "4/9/2022"
 output: pdf_document
 ---
 
