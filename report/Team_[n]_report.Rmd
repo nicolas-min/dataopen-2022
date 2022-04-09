@@ -29,17 +29,95 @@ Our research question
 
 # 2 Technical Exposition
 
-## 2.1 Data Manipulation
+## 2.1 Data Identification
+
+
+In order to determine the usefulness, reliability, and relevance of the data, each data element was analyzed to determine if it should be included as transformations to impact re admittance. The data elements themselves are organized in 3 categories: patient history, treatment, and patient demographic.
+
+### Patient Identification
+
+#### encounter_id
+Used as the index for hospital visits
+
+#### patient_nbr
+Used as the index for patients
+
+#### weight / medical_specialty
+Not used as the data was too sparse.
+
+#### payer_code //check to make sure
+Not used due to irrelevance.
+
+
+### Treatment
+
+#### admission_type_id / admission_source_id
+The type of admission and source of admission can indicate the intensity or stage until diabetes diagnosis, impacting the effectiveness of possible future medications.
+
+#### discharge_disposition_id
+The type of discharge can indicate the condition of patient after care, impacting the possibility of future re-admittance.
+
+#### time_in_hospital
+May indicate the condition of the patient during treatment and the incidence of re admittance.
+
+#### medical_specialty //check again
+Not used as treatment is assumed to be standardized.
+
+#### num_lab_procedures / num_procedures
+How many times a patient is tested may impact the quality of the diagnosis and treatment.
+
+#### num_medications
+The number of medications may indicate the severity of diabetes.
+
+#### diag_1
+This data was grouped into 9 codes as previously stated in 2.1. Impacts the medication given.
+
+#### diag_2 / diag_3
+Are not the primary diagnoses, therefore removed to simplify the data.
+
+#### number_diagnoses
+May indicate the quality of the diagnosis and treatment offered.
+
+#### metformin / repaglinide / nateglinide / chloropropamide / glimepiride / acetohexamide / glipizide / glyburide / tolbutamide / pioglitazone / rosiglitazone / acarbose / miglitol / troglitazone / tolazamide / examide / citoglipton / insulin / glyburide-metformin / glipizide-metformin / glimepiride-pioglitazone / metformin-rosiglitazone / metformin-ploglitazone / diabetesMed
+
+The type of medication prescribed and combination may impact diabetes treatment processes.
+
+#### change
+Change in diabetic medication may indicate the changing severity of diabetes on the patient.
+
+
+### Patient History and Health
+
+#### gender
+Genetic differences may impact re-admittance, as well as social or systematic biases that may change how different genders are treated.
+
+#### age
+Different ages may change the outcome of diabetes, like older individuals being more prone to the impacts of diabetes as well as having other health conditions.
+
+#### number_outpatient / number-emergency / number_inpatient
+The number of preceding encounters may indicate other health conditions that may impact the severity of diabetes.
+
+#### max_glu_serum / A1Cresult
+The main two indicators of diabetes, with varying ranges indicating varying diabetes impacts.
+
+### Target Variable
+
+#### readmitted
+Indicates the range of days until a patient was readmitted.
+
+
+## 2.2 Data Manipulation
+
 Agreeing with the justifications made by Strack et al.(2014), we performed the following data manipulation prior to model fitting (see Strack et al.(2014) for the justifications). We checked that our summary statistics match Table2 of Strack et al.
 
-1. Ignored the following features: weight and payer code
-2. Imputed '?' in medical specialty with "missing"
-3. Kept only the first encounter for each patient.
-4. Removed all encounters that resulted in either discharge to a hospice or patient death (because for these patients, no readmission is not a positive outcome)
-5. Grouped icd9 codes by: circulatory, respiratory, digestive, diabetes, injury, musculoskeletal, genitourinary, neoplasms, and other.
+1. Imputed '?' in medical specialty with "missing"
+2. Kept only the first encounter for each patient.
+3. Removed all encounters that resulted in either discharge to a hospice or patient death (because for these patients, no readmission is not a positive outcome)
+4. Grouped icd9 codes by: circulatory, respiratory, digestive, diabetes, injury, musculoskeletal, genitourinary, neoplasms, and other.
+5. Focused on "recent readmittance" by categorizing the "readmitted" element as either <30  days or "other"
 
 
-## 2.2 Modeling
+## 2.3 Modeling
 
 Assumptions (both implicit and explicit) made in the Strack et al.(2014) were made in our analysis as well. Below are these assumptions. 
 
