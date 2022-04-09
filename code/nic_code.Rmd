@@ -14,6 +14,7 @@ library(maps)
 library(here)
 library(stringr)
 library("randomForest")
+library(ggridges)
 ```
 
 # load
@@ -73,13 +74,99 @@ summary(as.factor(cleaned_data$early_readmitted))/nrow(cleaned_data) #8.97%
 cleaned_data_black <- cleaned_data %>% filter(race == "AfricanAmerican")
 cleaned_data_white <- cleaned_data %>% filter(race == "Caucasian")
 cleaned_data_asian <- cleaned_data %>% filter(race == "Asian")
-cleaned_data_hispanic <- cleaned_data %>% filter(race == "")
+cleaned_data_hispanic <- cleaned_data %>% filter(race == "Hispanic")
 
 summary(as.factor(cleaned_data_black$early_readmitted))/nrow(cleaned_data_black) #8.65%
 summary(as.factor(cleaned_data_white$early_readmitted))/nrow(cleaned_data_white) #9.18%
-summary(as.factor(cleaned_data_asian$early_readmitted))/nrow(cleaned_data_asian) #9.18%
+summary(as.factor(cleaned_data_asian$early_readmitted))/nrow(cleaned_data_asian) #8.40%
+summary(as.factor(cleaned_data_hispanic$early_readmitted))/nrow(cleaned_data_hispanic) #8.13%
+
+t.test(cleaned_data_white$early_readmitted, cleaned_data_hispanic$early_readmitted)
+t.test(cleaned_data_asian$early_readmitted, cleaned_data_black$early_readmitted)
+
+#===
+sum(cleaned_data_black$diag_1_grouped=="diabetes")/nrow(cleaned_data_black) #13.10%
+sum(cleaned_data_white$diag_1_grouped=="diabetes")/nrow(cleaned_data_white) #7.01%
+sum(cleaned_data_asian$diag_1_grouped=="diabetes")/nrow(cleaned_data_asian) # 4.92%
+sum(cleaned_data_hispanic$diag_1_grouped=="diabetes")/nrow(cleaned_data_hispanic) # 10.2%
+
+cleaned_data_black$diab_primary <- 0
+cleaned_data_black$diab_primary[cleaned_data_black$diag_1_grouped == "diabetes"] <- 1
+cleaned_data_white$diab_primary <- 0
+cleaned_data_white$diab_primary[cleaned_data_white$diag_1_grouped == "diabetes"] <- 1
+
+t.test(cleaned_data_white$diab_primary, cleaned_data_black$diab_primary) #t = -18.997, df = 16282, p-value < 2.2e-16
+
+
+
+#====
+#compare distri
+cleaned_data_gg <- cleaned_data %>% filter((race!='?' & race != 'Other')) %>% filter(A1Cresult !='None')
+cleaned_data_gg$A1Cresult_num <- 1
+cleaned_data_gg$A1Cresult_num[cleaned_data_gg$A1Cresult==">7"] <- 2
+cleaned_data_gg$A1Cresult_num[cleaned_data_gg$A1Cresult==">8"] <- 2
+
+cleaned_data_gg_diabonly <- cleaned_data_gg %>% filter(diag_1_grouped == "diabetes")
+
+ggplot(cleaned_data_gg, aes(x=A1Cresult_num, y = race, fill = race))+geom_density_ridges() +
+  labs(x = "Size (square feet)", y = "City", 
+       title = "Distribution of Apartment Size for Four Cities", 
+       subtitle = "(Note: Apartments over 2000 ft^2 are omitted)")
+ggplot(cleaned_data_gg, aes(x=A1Cresult_num, color = race))+geom_density()+
+  labs(x = "Size (square feet)", y = "City", 
+       title = "Distribution of Apartment Size for Four Cities", 
+       subtitle = "(Note: Apartments over 2000 ft^2 are omitted)")
+ggplot(cleaned_data_gg_diabonly, aes(x=A1Cresult_num, color = race))+geom_density()+
+  labs(x = "Size (square feet)", y = "City", 
+       title = "Distribution of Apartment Size for Four Cities", 
+       subtitle = "(Note: Apartments over 2000 ft^2 are omitted)")
 
 ```
+
+# logistic regression
+```{r}
+cleaned_data_black_features_outcome_diag <- cleaned_data_black[c(5:10,15:17,50,21,22,23,48)]
+cleaned_data_black_features_outcome_diag$diabetesMed<- as.numeric(cleaned_data_black_features_outcome_diag$diabetesMed == "Yes")
+
+cleaned_data_white_features_outcome_diag <- cleaned_data_white[c(5:10,15:17,50,21,22,23,48)]
+cleaned_data_white_features_outcome_diag$diabetesMed<- as.numeric(cleaned_data_white_features_outcome_diag$diabetesMed == "Yes")
+
+#cleaned_data_features_outcome_nodiag <- #cleaned_data[c(5:10,15:17,22,23,48)]
+#cleaned_data_features_outcome_nodiag$diabetesMed<- #as.numeric(cleaned_data_features_outcome_nodiag$diabetesMed == "Yes")
+
+logit_model_white <- glm(diabetesMed ~ .,data=cleaned_data_white_features_outcome_diag, family=binomial())
+white_model_predict_black <- predict(logit_model_white, newdata=cleaned_data_black_features_outcome_diag, type = "response")
+white_model_predict_black <- as.numeric(white_model_predict_black>0.5)
+y_minus_yhat <- as.data.frame(cleaned_data_black_features_outcome_diag$diabetesMed-white_model_predict_black)
+colnames(y_minus_yhat) <- "y_minus_y_hat"
+ggplot(as.data.frame(y_minus_yhat), aes(x=y_minus_y_hat))+geom_histogram()+theme_minimal()+xlab("actual diabetesMed - predicted diabetesMed")+ggtitle("Predicting diabetesMed for AA using Caucasian-trained-regression")
+ggsave("../plot/logistic_histo.png")
+
+logit_model_black <- glm(diabetesMed ~ .,data=cleaned_data_black_features_outcome_diag, family=binomial())
+black_model_predict_white <- predict(logit_model_black, newdata=cleaned_data_white_features_outcome_diag, type = "response")
+black_model_predict_white <- as.numeric(black_model_predict_white>0.5)
+y_minus_yhat <- as.data.frame(cleaned_data_white_features_outcome_diag$diabetesMed-black_model_predict_white)
+colnames(y_minus_yhat) <- "y_minus_y_hat"
+ggplot(as.data.frame(y_minus_yhat), aes(x=y_minus_y_hat))+geom_histogram()+theme_minimal()+xlab("actual diabetesMed - predicted diabetesMed")+ggtitle("Predicting diabetesMed for Caucasian patients using AA-dataset-trained-regression")
+```
+
+#combination of treatments
+```{r}
+combinations <- rep(NA,nrow(cleaned_data))
+for (i in 1:nrow(cleaned_data)){
+  combinations[i] <- paste(as.vector(unlist(cleaned_data[i,24:46])),collapse= "")
+}
+
+length(unique(combinations))
+```
+
+
+
+
+
+
+
+
 
 # Math inside RMD
 ```{r}
