@@ -1,0 +1,357 @@
+---
+title: "sample codes"
+author: "Nicolas Min"
+date: "4/7/2022"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(plm)
+library(lmtest)
+library(maps) 
+library(here)
+library(stringr)
+library("randomForest")
+```
+
+# load
+```{r}
+data <- read.csv("../data/diabetic_data.csv")
+```
+
+# manipulation
+```{r}
+#1. Ignored the following features: weight and payer code
+data_no_weight_pc <- data %>% select(-c(weight, payer_code))
+#2. Imputed '?' in medical specialty with "missing"
+data_no_weight_pc$medical_specialty[data_no_weight_pc$medical_specialty == "?"] <- "missing"
+#3. Kept only the first encounter for each patient.
+data_first_encounter <- data_no_weight_pc %>% group_by(patient_nbr) %>% slice(1)
+#4. Removed all encounters that resulted in either discharge to a hospice or patient death.
+cleaned_data <- data_first_encounter %>% filter(discharge_disposition_id != 13&discharge_disposition_id != 14&discharge_disposition_id != 19&discharge_disposition_id != 20&discharge_disposition_id != 21&discharge_disposition_id != 11)
+
+#5. Grouped icd9 code
+circulatory <- as.character(seq(390, 459, 1), 785)
+respiratory <- as.character(seq(460, 519, 1), 786)
+digestive <- as.character(seq(520, 579, 1), 787)
+diabetes <- as.character(seq(250, 250.99, 0.01))
+injury <- as.character(seq(800, 999, 1))
+musculoskeletal <- as.character(seq(710, 739, 1))
+genitourinary <- as.character(seq(580, 629, 1), 788)
+neoplasms <- as.character(seq(140, 239, 1), 780,781,784, seq(790, 799, 1),seq(240, 249, 1),seq(251, 279, 1),seq(680, 709, 1),782,seq(1, 139, 1))
+
+cleaned_data$diag_1_grouped <- "Other"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% circulatory] <- "circulatory"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% respiratory] <- "respiratory"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% digestive] <- "digestive"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% diabetes] <- "diabetes"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% injury] <- "injury"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% musculoskeletal] <- "musculoskeletal"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% genitourinary] <- "genitourinary"
+cleaned_data$diag_1_grouped[cleaned_data$diag_1 %in% neoplasms] <- "neoplasms"
+
+sort(unique(cleaned_data$diag_1))
+summary(as.factor(cleaned_data$diag_1_grouped))/69973
+
+#construct binary outcome variable
+cleaned_data$early_readmitted<- 0
+cleaned_data$early_readmitted[cleaned_data$readmitted == "<30"] <- 1
+
+
+#export
+write.csv(cleaned_data, "../data/diabetic_data_prelim_cleaned.csv")
+```
+
+
+# Math inside RMD
+```{r}
+# https://rpruim.github.io/s341/S19/from-class/MathinRmd.html
+```
+
+# Linear Regression with Fixed Effects
+$$Output_i =\alpha + \beta_1emp + \beta_2wage + \beta_3capital+ \sum_{j=1977}^{1984}\gamma_j1(sector_i = j)  + \sum_{c=2}^{9}\delta_c1(sector_i = c) + \epsilon_i$$
+```{r}
+data("EmplUK", package="plm")
+
+#https://www.youtube.com/watch?v=ghNSChAymF4
+#using lm()
+summary(lm(output ~ emp + wage + capital +factor(year)+ factor(sector), data=EmplUK))
+#using plm()
+summary(plm(output ~ emp + wage + capital +factor(year), index=c("sector") , model="within", data=EmplUK))
+
+#https://bookdown.org/ccolonescu/RPoE4/panel-data-models.html
+#using plm() but use robust SE
+plm_model <- plm(output ~ emp + wage + capital +factor(sector), index=c("year") , model="within", data=EmplUK)
+coeftest(plm_model, vcov=vcovHC(plm_model, type="HC1",cluster="group"))
+```
+
+#quantile regression
+```{r}
+library(quantreg)
+data(mtcars)
+lm_fit <- lm(mpg ~ wt, data = mtcars)
+lm_est <- lm_fit$coefficients[2]
+
+multi_rqfit <- rq(mpg ~ wt, data = mtcars, tau = seq(0, 1, by = 0.01))
+rq_est <- multi_rqfit$coefficients[seq(2,200,by=2)]
+
+rq_est_df <- data.frame(seq(0.01, 1, by = 0.01), rq_est)
+colnames(rq_est_df)[1] <- "quantile"
+
+ggplot(data=rq_est_df, aes(x=quantile, y=rq_est))+geom_line()+geom_hline(yintercept = lm_est, color = "red")
+ggplot(mtcars, aes(x=wt, y=mpg))+geom_point()+geom_smooth(method = 'lm')
+
+
+lm_fit <- lm(medv ~ lstat, data = BostonHousing)
+lm_est <- lm_fit$coefficients[2]
+
+multi_rqfit <- rq(medv ~ lstat, data = BostonHousing, tau = seq(0, 1, by = 0.1))
+rq_est <- multi_rqfit$coefficients[seq(2,20,by=2)]
+
+rq_est_df <- data.frame(seq(0.1, 1, by = 0.1), rq_est)
+colnames(rq_est_df)[1] <- "quantile"
+
+ggplot(data=rq_est_df, aes(x=quantile, y=rq_est))+geom_line()+geom_hline(yintercept = lm_est, color = "red")
+
+ggplot(BostonHousing, aes(x=lstat, y=medv))+geom_point()+geom_smooth(method = 'lm')
+
+
+```
+
+# Residual Regression (FWL)
+```{r}
+x1 = rnorm(100)
+x2 = rnorm(100)
+x3 = rnorm(100)
+y1 = 1 + x1 - x2 + x3 + rnorm(100)
+
+r1 = residuals(lm(y1 ~ x2))
+r2 = residuals(lm(x1 ~ x2))
+r3 = residuals(lm(x1 ~ x3))
+# ols
+coef(lm(y1 ~ x1 + x2))
+# fwl ols
+coef(lm(r1 ~ -1 + r2))
+```
+
+# Weighted Linear Regression and Residual Analysis
+```{r}
+library(mlbench)
+library(ggplot2)
+data(BostonHousing)
+
+#WLS
+#stat 230A p195
+ols.fit = lm(medv ~ ., data = BostonHousing)
+dat.res = BostonHousing
+dat.res$medv = log((ols.fit$residuals)^2) #log of sq(resid)
+t.res.ols = lm(medv ~ ., data = dat.res) #above ~ X
+w.fgls = exp(-t.res.ols$fitted.values) # exponentiate fitted values -> this is our weight
+fgls.fit = lm(medv ~ ., weights = w.fgls, data = BostonHousing)
+ols.fgls = cbind(summary(ols.fit)$coef[,1:3],summary(fgls.fit)$coef[,1:3])
+round(ols.fgls , 3)
+
+#Resid Anal
+mod_ols.fit <- fortify(ols.fit)
+mod_fgls.fit <- fortify(fgls.fit)
+ggplot(mod_ols.fit , aes(x = .fitted, y = .resid)) + geom_point() +
+  theme_bw()+
+  labs(x = "Fitted Values", y = "Residuals", title = "OLS Residuals - With all variables")
+ggplot(mod_fgls.fit , aes(x = .fitted, y = .resid)) + geom_point() +
+  theme_bw()+
+  labs(x = "Fitted Values", y = "Residuals", title = "FGLS Residuals - With all variables")
+
+```
+
+# export reg table
+```{r}
+#https://cran.r-project.org/web/packages/jtools/vignettes/summ.html
+library(mlbench)
+library(ggplot2)
+library(jtools)
+library(huxtable)
+
+data(BostonHousing)
+ols.fit1 = lm(medv ~ ., data = BostonHousing)
+export_summs(ols.fit, scale = TRUE, to.file = "pdf", file.name = "../plot/test.pdf")
+```
+
+
+# LASSO/Ridge
+```{r}
+#https://www.statology.org/lasso-regression-in-r/
+#https://www.pluralsight.com/guides/linear-lasso-and-ridge-regression-with-r
+library(glmnet)
+y <- mtcars$hp
+x <- data.matrix(mtcars[, c('mpg', 'wt', 'drat', 'qsec')])
+
+#perform k-fold cross-validation to find optimal lambda value
+#alpha=0: ridge
+#alpha=1: lasso
+cv_model <- cv.glmnet(x, y, nfolds=10, alpha = 1) #nfolds=10 is default. if you want LOOCV, change to nrow(x)
+
+#find optimal lambda value that minimizes test MSE
+best_lambda <- cv_model$lambda.min
+best_lambda
+log(best_lambda)
+
+#produce plot of test MSE by lambda value
+plot(cv_model) 
+
+#coef
+best_model <- glmnet(x, y, alpha = 0, lambda = best_lambda)
+coef(best_model)
+
+#use fitted best model to make predictions
+y_predicted <- predict(best_model, s = best_lambda, newx = x)
+
+#find Rsq
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+rsq <- 1 - sse/sst
+rsq
+
+#compare with ols
+summary(lm(hp ~ mpg +wt + drat +qsec,data=mtcars))
+summary(lm(hp ~ mpg +wt +qsec,data=mtcars))
+
+```
+
+# MAP
+```{r}
+#read datasets in R
+MainStates <- map_data("state") #state location (grouped)
+AllCounty <- map_data("county") #county location (grouped)
+MainCities <- filter(us.cities, long>=-130) #population by city
+
+# read 3rd party 'state' population data
+StatePopulation <- read.csv("https://raw.githubusercontent.com/ds4stats/r-tutorials/master/intro-maps/data/StatePopulation.csv", as.is = TRUE)
+MergedStates <- inner_join(MainStates, StatePopulation, by = "region")
+
+ggplot(data = MergedStates) + 
+  geom_polygon(aes(x = long,y = lat,group = group,fill = population / 1000000), color = "white",size = 0.2)+
+  theme_minimal()+
+  ggtitle("US Population (state level)")
+
+ggplot() + 
+  geom_polygon( data=AllCounty, aes(x=long, y=lat, group=group),
+                         color="white", fill="lightblue", size = .1 ) +
+  geom_polygon( data=MainStates, aes(x=long, y=lat, group=group),
+                color="black", fill="darkblue",  size = 1, alpha = .3)+
+  geom_point(data=MainCities, aes(x=long, y=lat, size = pop/1000000), color = "gold", alpha = .5)+
+  theme_minimal()+
+  ggtitle("US Population")
+ggsave("../plot/sample plot.png")
+
+ggplot() + 
+  geom_polygon( data=AllCounty[AllCounty$region == "california",], aes(x=long, y=lat, group=group),
+                         color="darkblue", fill="lightblue", size = .1 ) +
+  geom_polygon( data=MainStates[MainStates$region =="california",], aes(x=long, y=lat, group=group),
+                color="black", fill="lightblue",  size = 1, alpha = .3) +
+  geom_point(data=MainCities[MainCities$country.etc == "CA",], aes(x=long, y=lat, size = pop/1000000), color = "gold", alpha = .5) +
+  theme_minimal() +
+  ggtitle("California Population")
+ggsave("../plot/sample plot2.png")
+```
+
+# Heatmap
+```{r}
+#https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
+#https://r-graph-gallery.com/38-rcolorbrewers-palettes.html
+library(hrbrthemes)
+
+# Dummy data
+x <- LETTERS[1:20]
+y <- paste0("var", seq(1,20))
+data <- expand.grid(X=x, Y=y) #expand.grid matches each Xi to Y1,...,Yn
+data$Z <- runif(400, 0, 5)
+ 
+# Heatmap 
+ggplot(data, aes(X, Y, fill= Z)) + 
+  geom_tile() + 
+  scale_fill_distiller(palette = "PiYG") +
+  theme_ipsum()
+```
+
+# ML
+```{r}
+#ML
+#https://www.geeksforgeeks.org/7-best-r-packages-for-machine-learning/
+#https://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr
+
+data(BostonHousing)
+data(BostonHousing2)
+data(iris)
+
+# Loading package
+library(e1071)
+library(caTools)
+library(caret)
+library(mlbench)
+library(class)
+
+# Splitting data into train
+# and test data
+training_percent <- 0.75
+testing_percent <- 1 - training_percent 
+
+split1<- sample(c(rep(0, training_percent * nrow(iris)), rep(1, testing_percent * nrow(iris))))
+
+train <- iris[split1 == 0,]
+test <- iris[split1 == 1,]
+
+# Feature Scaling
+train_scale <- scale(train[, 1:4])
+test_scale <- scale(test[, 1:4])
+
+# to training dataset
+set.seed(120) # Setting Seed
+classifier_cl <- naiveBayes(Species ~ .,data = train)
+classifier_RF <- randomForest(x = train[-5], y = train$Species, ntree = 500) #can be used to regression tree as well!
+
+# Predicting on test data
+y_pred_cl <- predict(classifier_cl, newdata = test)
+y_pred_RF = predict(classifier_RF, newdata = test[-5])
+y_pred_knn <- knn(train[1:4],test[1:4],cl=train[,5],k=2) #no need to 'train'
+
+# Confusion Matrix
+cm_cl <- table(test$Species, y_pred_cl)
+cm_cl
+cm_RF <- table(test$Species, y_pred_RF)
+cm_RF
+cm_knn <- table(test$Species,y_pred_knn)
+cm_knn
+
+#accuracy
+sum(y_pred_cl==test$Species)/length(test$Species)
+sum(y_pred_RF==test$Species)/length(test$Species)
+sum(y_pred_knn==test$Species)/length(test$Species)
+
+```
+
+
+# Wald test & LRT
+```{r}
+library(aod)
+library(lmtest)
+
+#https://www.statology.org/wald-test-in-r/
+#https://www.statology.org/likelihood-ratio-test-in-r/
+  
+
+model <- lm(medv ~ ., data = BostonHousing)
+summary(model)
+wald.test(Sigma = vcov(model), b = coef(model), Terms = 4:5)
+
+model_big <- lm(medv ~ crim + zn + indus, data = BostonHousing)
+model_small <- lm(medv ~ crim + zn, data = BostonHousing)
+lrtest(model_big, model_small)
+
+#view model summary
+?waldtest
+
+
+```
+
